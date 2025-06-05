@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.log
+
+#  Environments
+venv/
+smoldocling_env/
+
+#  OS-specific files
+.DS_Store
+Thumbs.db
+
+#  Output files
+*.txt
+*.json
+
+#  Image data
+image/*.jpg
+image/*.jpeg
+image/*.png
+image/*.gif
+
+#  VSCode and IDE files
+.vscode/
+*.idea/
+
+#  Jupyter/IPython
+.ipynb_checkpoints/
+
+#  Backup and temporary files
+*.bak
+*.tmp
+*~
+
+#  Tesseract config (optional if you use custom configs)
+tessdata/
