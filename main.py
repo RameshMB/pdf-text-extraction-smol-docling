@@ -1,8 +1,3 @@
-# Prerequisites:
-# pip install torch torchvision
-# pip install transformers
-# pip install opencv-python pillow pytesseract
-
 import torch
 from PIL import Image, ImageEnhance
 import pytesseract
@@ -11,6 +6,7 @@ from transformers.image_utils import load_image
 import json
 import re
 import os
+from pdf2image import convert_from_path
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -41,17 +37,31 @@ def get_prompt():
     ]
 
 def parse_doctags_to_json(doctag_text: str):
-    json_obj = {}
+    json_obj = {"table": []}
     rows = []
     for line in doctag_text.split("<nl>"):
         cells = re.findall(r"<fcel>([^<]+)", line)
         if cells:
             rows.append(cells)
+    
+    # If header and row count matches, map headers
     if rows:
-        json_obj["table"] = rows
+        headers = ["Product Name", "Qty", "Unit Price", "Total Price"]
+        for row in rows:
+            if len(row) == 4:
+                row_dict = dict(zip(headers, row))
+                json_obj["table"].append(row_dict)
+    
     return json_obj
 
-def main(image_path: str):
+def convert_pdf_to_image(pdf_path: str) -> str:
+    images = convert_from_path(pdf_path, dpi=300)
+    first_page = images[0]
+    output_path = "./image/temp_converted.jpg"
+    first_page.save(output_path, "JPEG")
+    return output_path
+
+def process_invoice(image_path: str):
     raw_image = load_image(image_path)
     image = enhance_image(raw_image)
 
@@ -72,7 +82,6 @@ def main(image_path: str):
     prompt_len = inputs.input_ids.shape[1]
     decoded_output = processor.batch_decode(generated_ids[:, prompt_len:], skip_special_tokens=False)[0].strip()
 
-    # Wrap with <document> tag if not present
     if "<document>" not in decoded_output:
         decoded_output = "<document>\n" + decoded_output
     if "</document>" not in decoded_output:
@@ -89,13 +98,12 @@ def main(image_path: str):
                 json.dump(parsed_json, f, indent=2)
             print(" Structured JSON saved to: invoice_output.json")
         else:
-            raise ValueError("No table found in doctags.")
+            raise ValueError("No valid table extracted.")
     except Exception as e:
         print(f" Docling parse failed: {e}")
-        fallback_path = "fallback_cleaned_output.txt"
-        with open(fallback_path, "w", encoding="utf-8") as f:
+        with open("fallback_cleaned_output.txt", "w", encoding="utf-8") as f:
             f.write(decoded_output)
-        print(f" Fallback doctags saved to: {fallback_path}")
+        print(" Fallback doctags saved to: fallback_cleaned_output.txt")
 
         print("\n SmolDocling failed. Falling back to OCR...")
         ocr_text = pytesseract.image_to_string(image)
@@ -104,10 +112,15 @@ def main(image_path: str):
         print(" OCR fallback saved to: fallback_ocr_output.txt")
 
 if __name__ == "__main__":
-    invoice_image_path = "./image/invoice_sample5.jpg"
-    if not os.path.exists(invoice_image_path):
-        print(f" File not found: {invoice_image_path}")
+    invoice_path = "./image/invoice_sample4.pdf"  # or PDF file path
+
+    if not os.path.exists(invoice_path):
+        print(f" File not found: {invoice_path}")
     else:
-        main(invoice_image_path)
+        # Check if input is PDF
+        ext = os.path.splitext(invoice_path)[1].lower()
+        if ext == ".pdf":
+            print(" Detected PDF. Converting to image...")
+            invoice_path = convert_pdf_to_image(invoice_path)
 
-
+        process_invoice(invoice_path)

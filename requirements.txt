@@ -1,7 +1,8 @@
 torch
-torchvision
 transformers
-docling_core
-opencv-python
 pillow
 pytesseract
+pdf2image
+opencv-python
+torchvision
+docling_core
